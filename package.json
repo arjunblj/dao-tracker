@@ -1,0 +1,7 @@
+{
+  "name": "dao-tracker",
+  "version": "0.0.1",
+  "main": "index.js",
+  "author": "Arjun Balaji <arjunblj@gmail.com>",
+  "license": "MIT"
+}
