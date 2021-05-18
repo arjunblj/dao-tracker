@@ -54,6 +54,9 @@ const generateContractFunctionList = async (tokenList, daoList) => {
       batch.add(contract.methods.balanceOf(id).call.request({}))
     })
 
+    // Handle ETH
+    batch.add(web3.eth.getBalance.request(id))
+
     batchedRequests.push({
       daoName: name,
       daoAddress: id,
