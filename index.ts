@@ -33,9 +33,9 @@ const getBalances = async daoList => {
 
           if (_hex && _hex != '0x00') {
             const { name, decimals, symbol } = tokens[index]
-            tokenHoldings[symbol] = convertToNumber(_hex, decimals)
+            tokenHoldings[symbol] = convertToNumber({ hex: _hex, decimals })
           } else if (resp != '0') {
-            tokenHoldings['ETH'] = resp
+            tokenHoldings['ETH'] = convertToNumber({ wei: resp })
           }
         }
       })

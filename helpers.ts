@@ -1,4 +1,5 @@
 import 'isomorphic-fetch'
+import TokenAmount from 'token-amount'
 import { toBN } from 'web3-utils'
 const Web3 = require('web3')
 
@@ -9,14 +10,12 @@ const getTokens = async () => {
   return fetch(tokenSource).then(data => data.json())
 }
 
-const convertToNumber = (hex, decimals) => {
-  const balance = toBN(hex)
-  let balanceDecimal = balance
-  if (decimals && balance.toLocaleString() === '0' && decimals < 20) {
-    balanceDecimal = balance.div(toBN(10 ** decimals))
+const convertToNumber = ({ hex = null, decimals = null, wei = null }) => {
+  if (wei) {
+    return TokenAmount.format(wei, 18, { commify: true })
   }
 
-  return balanceDecimal.toLocaleString()
+  return new TokenAmount(toBN(hex), decimals).format({ commify: true })
 }
 
 const generateContractFunctionList = async (tokenList, daoList) => {
