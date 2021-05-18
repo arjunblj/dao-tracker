@@ -1,10 +1,9 @@
-import { toBN } from 'web3-utils'
 import 'isomorphic-fetch'
+import { toBN } from 'web3-utils'
 const Web3 = require('web3')
 
-const web3 = new Web3(new Web3.providers.HttpProvider('https://mainnet.infura.io/v3/e1dc9ec1da5f4c80a11f4bd700fa751e'))
+const web3 = new Web3(new Web3.providers.HttpProvider(process.env.PROVIDER))
 
-// Fetch Uniswap token list from Zapper
 const getTokens = async () => {
   const tokenSource = 'https://defiprime.com/defiprime.tokenlist.json'
   return fetch(tokenSource).then(data => data.json())

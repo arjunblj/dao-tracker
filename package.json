@@ -3,18 +3,20 @@
   "version": "0.0.1",
   "main": "index.js",
   "scripts": {
-    "start": "ts-node ./index.ts"
+    "start": "ts-node -r dotenv/config ./index.ts"
   },
   "author": "Arjun Balaji <arjunblj@gmail.com>",
   "license": "MIT",
   "dependencies": {
-    "@aragon/connect": "^0.7.0",
-    "@aragon/connect-finance": "^0.7.0",
-    "@aragon/connect-voting": "^0.7.4",
-    "etherscan-api": "^10.0.5",
+    "@aragon/connect": "0.8.0-alpha.6",
+    "@aragon/connect-finance": "0.8.0-alpha.6",
+    "@aragon/connect-thegraph": "0.8.0-alpha.6",
+    "@aragon/connect-voting": "0.8.0-alpha.6",
+    "dotenv": "^9.0.2",
     "graphql": "^15.5.0",
     "graphql-request": "^3.4.0",
     "isomorphic-fetch": "^3.0.0",
+    "token-amount": "^0.3.0",
     "ts-node": "^9.1.1",
     "typescript": "^4.2.4",
     "web3": "^2.0.0-alpha.1",

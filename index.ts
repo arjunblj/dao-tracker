@@ -1,11 +1,15 @@
-import { getTokens, convertToNumber, generateContractFunctionList } from './helpers'
 import { fetchDAOStackDAOs } from './daostack'
+import { fetchAragonDAOs } from './aragon'
+import { getTokens, convertToNumber, generateContractFunctionList } from './helpers'
 
 async function main() {
   const daoStackDAOs = await fetchDAOStackDAOs()
   const daoBalances = await getBalances(daoStackDAOs)
 
-  console.log(daoBalances)
+  console.log(daoBalances.filter(balance => Object.keys(balance.tokenHoldings).length > 0))
+
+  // const aragonDAOs = await fetchAragonDAOs()
+  // console.log(aragonDAOs)
 }
 
 // Get balances for a list of DAOs.
