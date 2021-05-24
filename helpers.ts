@@ -52,22 +52,22 @@ const convertToNumber = (bigNum, decimals) => {
 const generateContractFunctionList = async (provider, daoList, tokenList) => {
   const daoFunctionCallMap = []
 
-  daoList.map(({ name, id }) => {
+  daoList.map(({ daoName, daoAddress }) => {
     const multicallRequests = []
 
     // Handle ETH
-    const ethBalanceCall = multicallRequests.push(provider.getEthBalance(id))
+    const ethBalanceCall = multicallRequests.push(provider.getEthBalance(daoAddress))
 
     tokenList.map(async ({ address: tokenAddress }) => {
       const abi = ['function balanceOf(address _owner) public view returns (uint256 balance)']
       const tokenContract = new Contract(tokenAddress, abi)
 
-      multicallRequests.push(tokenContract.balanceOf(id))
+      multicallRequests.push(tokenContract.balanceOf(daoAddress))
     })
 
     daoFunctionCallMap.push({
-      daoName: name,
-      daoAddress: id,
+      daoName,
+      daoAddress,
       balanceMultiCall: multicallRequests
     })
   })

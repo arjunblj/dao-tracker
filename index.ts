@@ -11,9 +11,6 @@ async function main() {
   const daoBalances = await fetchTokenBalances(provider, daoStackDAOs, tokens)
 
   console.log(daoBalances.filter(balance => Object.keys(balance.tokenHoldings).length > 1))
-
-  // const aragonDAOs = await fetchAragonDAOs()
-  // console.log(aragonDAOs)
 }
 
 main()

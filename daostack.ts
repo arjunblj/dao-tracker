@@ -15,6 +15,14 @@ const query = gql`
   }
 `
 
-const fetchDAOStackDAOs = async () => request(daoStackSubgraph, query).then(data => data.daos)
+const fetchDAOStackDAOs = async () =>
+  request(daoStackSubgraph, query).then(data => {
+    data.daos.map(dao => {
+      dao['daoAddress'] = dao['id']
+      dao['daoName'] = dao['name']
+    })
+
+    return data.daos
+  })
 
 export { fetchDAOStackDAOs }
