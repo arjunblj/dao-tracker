@@ -1,54 +1,19 @@
 import { fetchDAOStackDAOs } from './daostack'
 import { fetchAragonDAOs } from './aragon'
-import { getTokens, convertToNumber, generateContractFunctionList } from './helpers'
+import { initEthersProvider, fetchTokenList, fetchTokenBalances } from './helpers'
 
 async function main() {
-  const daoStackDAOs = await fetchDAOStackDAOs()
-  const daoBalances = await getBalances(daoStackDAOs)
+  const provider = initEthersProvider()
 
-  console.log(daoBalances.filter(balance => Object.keys(balance.tokenHoldings).length > 0))
+  const { tokens } = await fetchTokenList()
+  const daoStackDAOs = await fetchDAOStackDAOs()
+
+  const daoBalances = await fetchTokenBalances(provider, daoStackDAOs, tokens)
+
+  console.log(daoBalances.filter(balance => Object.keys(balance.tokenHoldings).length > 1))
 
   // const aragonDAOs = await fetchAragonDAOs()
   // console.log(aragonDAOs)
-}
-
-// Get balances for a list of DAOs.
-// daoList = [{ name: '', id: '0x...'}]
-const getBalances = async daoList => {
-  const { tokens } = await getTokens()
-
-  const daos = await generateContractFunctionList(tokens, daoList)
-
-  const daoBalances = []
-
-  await Promise.all(
-    daos.map(async ({ daoName, daoAddress, balanceRequests }) => {
-      const { response } = await balanceRequests.execute()
-
-      const tokenHoldings = {}
-
-      response.map((resp, index) => {
-        if (resp) {
-          const { _hex } = resp
-
-          if (_hex && _hex != '0x00') {
-            const { name, decimals, symbol } = tokens[index]
-            tokenHoldings[symbol] = convertToNumber({ hex: _hex, decimals })
-          } else if (resp != '0') {
-            tokenHoldings['ETH'] = convertToNumber({ wei: resp })
-          }
-        }
-      })
-
-      daoBalances.push({
-        daoName,
-        daoAddress,
-        tokenHoldings
-      })
-    })
-  )
-
-  return daoBalances
 }
 
 main()

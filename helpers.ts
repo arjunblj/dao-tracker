@@ -1,69 +1,76 @@
 import 'isomorphic-fetch'
 import TokenAmount from 'token-amount'
-import { toBN } from 'web3-utils'
-const Web3 = require('web3')
+import { Contract, Provider } from 'ethers-multicall'
+import { ethers } from 'ethers'
 
-const web3 = new Web3(new Web3.providers.HttpProvider(process.env.PROVIDER))
+export function initEthersProvider() {
+  const provider = new ethers.providers.InfuraProvider('mainnet', process.env.INFURA_KEY)
 
-const getTokens = async () => {
+  return new Provider(provider, parseInt(process.env.CHAIN_ID))
+}
+
+export async function fetchTokenList() {
   const tokenSource = 'https://defiprime.com/defiprime.tokenlist.json'
   return fetch(tokenSource).then(data => data.json())
 }
 
-const convertToNumber = ({ hex = null, decimals = null, wei = null }) => {
-  if (wei) {
-    return TokenAmount.format(wei, 18, { commify: true })
-  }
+export async function fetchTokenBalances(provider, daoList, tokenList) {
+  const daos = await generateContractFunctionList(provider, daoList, tokenList)
 
-  return new TokenAmount(toBN(hex), decimals).format({ commify: true })
+  const daoBalances = []
+
+  return Promise.all(
+    daos.map(async ({ daoName, daoAddress, balanceMultiCall }) => {
+      const tokenHoldings = {}
+
+      const resp = await provider.all(balanceMultiCall)
+
+      resp.map((resp, index) => {
+        const { _hex } = resp
+
+        if (index == 0) {
+          tokenHoldings['ETH'] = convertToNumber(resp, 18)
+        } else if (_hex != '0x00') {
+          const { name, decimals, symbol } = tokenList[index]
+          tokenHoldings[symbol] = convertToNumber(resp, decimals)
+        }
+      })
+
+      daoBalances.push({
+        daoName,
+        daoAddress,
+        tokenHoldings
+      })
+    })
+  ).then(() => daoBalances)
 }
 
-const generateContractFunctionList = async (tokenList, daoList) => {
-  const batchedRequests = []
+const convertToNumber = (bigNum, decimals) => {
+  return new TokenAmount(bigNum, decimals).format({ commify: true })
+}
+
+const generateContractFunctionList = async (provider, daoList, tokenList) => {
+  const daoFunctionCallMap = []
 
   daoList.map(({ name, id }) => {
-    const batch = new web3.BatchRequest()
-
-    const abi = [
-      {
-        constant: true,
-        inputs: [
-          {
-            name: '_owner',
-            type: 'address'
-          }
-        ],
-        name: 'balanceOf',
-        outputs: [
-          {
-            name: 'balance',
-            type: 'uint256'
-          }
-        ],
-        payable: false,
-        stateMutability: 'view',
-        type: 'function'
-      }
-    ]
-
-    tokenList.map(async ({ address: tokenAddress, symbol, decimals }) => {
-      const contract = new web3.eth.Contract(abi)
-
-      contract.options.address = tokenAddress
-      batch.add(contract.methods.balanceOf(id).call.request({}))
-    })
+    const multicallRequests = []
 
     // Handle ETH
-    batch.add(web3.eth.getBalance.request(id))
+    const ethBalanceCall = multicallRequests.push(provider.getEthBalance(id))
 
-    batchedRequests.push({
+    tokenList.map(async ({ address: tokenAddress }) => {
+      const abi = ['function balanceOf(address _owner) public view returns (uint256 balance)']
+      const tokenContract = new Contract(tokenAddress, abi)
+
+      multicallRequests.push(tokenContract.balanceOf(id))
+    })
+
+    daoFunctionCallMap.push({
       daoName: name,
       daoAddress: id,
-      balanceRequests: batch
+      balanceMultiCall: multicallRequests
     })
   })
 
-  return batchedRequests
+  return daoFunctionCallMap
 }
-
-export { convertToNumber, getTokens, generateContractFunctionList }

@@ -13,7 +13,7 @@ yarn install
 Add env variables (`web3` provider):
 
 ```sh
-echo 'PROVIDER=' >> .env
+printf 'CHAIN_ID=''\nINFURA_KEY=' >> .env
 ```
 
 Run:
