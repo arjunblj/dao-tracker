@@ -21,26 +21,63 @@ export async function fetchTokenBalances(provider, daoList, tokenList) {
 
   return Promise.all(
     daos.map(async ({ daoName, daoAddress, balanceMultiCall }) => {
-      const tokenHoldings = {}
+      if (Array.isArray(balanceMultiCall)) {
+        const tokenHoldings = {}
 
-      const resp = await provider.all(balanceMultiCall)
+        const resp = await provider.all(balanceMultiCall)
 
-      resp.map((resp, index) => {
-        const { _hex } = resp
+        resp.map((resp, index) => {
+          const { _hex } = resp
 
-        if (index == 0) {
-          tokenHoldings['ETH'] = convertToNumber(resp, 18)
-        } else if (_hex != '0x00') {
-          const { name, decimals, symbol } = tokenList[index]
-          tokenHoldings[symbol] = convertToNumber(resp, decimals)
-        }
-      })
+          if (index == 0) {
+            tokenHoldings['ETH'] = convertToNumber(resp, 18)
+          } else if (_hex != '0x00') {
+            const { name, decimals, symbol } = tokenList[index]
+            tokenHoldings[symbol] = convertToNumber(resp, decimals)
+          }
+        })
 
-      daoBalances.push({
-        daoName,
-        daoAddress,
-        tokenHoldings
-      })
+        daoBalances.push({
+          daoName,
+          daoAddress,
+          tokenHoldings
+        })
+      } else {
+        const tokenHoldings = {}
+
+        const [ethBalances, tokenBalances] = await Promise.all([
+          await provider.all(balanceMultiCall['ethBalanceByAddress']),
+          await Promise.all(
+            balanceMultiCall['balanceCallsByAddress'].map(async tokenCall => await provider.all(tokenCall))
+          )
+        ])
+
+        ethBalances.map(ethBalance => {
+          tokenHoldings['ETH'] = tokenHoldings['ETH']
+            ? tokenHoldings['ETH'] + convertToNumber(ethBalance, 18)
+            : convertToNumber(ethBalance, 18)
+        })
+
+        tokenBalances.map(addressBalances => {
+          Object.keys(addressBalances).map(key => {
+            const resp = addressBalances[key]
+            const { _hex } = resp
+
+            if (_hex != '0x00') {
+              const { name, decimals, symbol } = tokenList[key]
+              tokenHoldings[symbol] = tokenHoldings[symbol]
+                ? tokenHoldings[symbol] + convertToNumber(resp, decimals) + convertToNumber(resp, decimals)
+                : convertToNumber(resp, decimals)
+            }
+          })
+        })
+
+        daoBalances.push({
+          daoName,
+          daoAddress,
+          tokenHoldings
+        })
+      }
     })
   ).then(() => daoBalances)
 }
@@ -49,27 +86,58 @@ const convertToNumber = (bigNum, decimals) => {
   return new TokenAmount(bigNum, decimals).format({ commify: true })
 }
 
+const getETHBalanceCall = (provider, address) => provider.getEthBalance(address)
+
+const getERC20BalanceCall = (provider, address, tokenAddress) => {
+  const abi = ['function balanceOf(address _owner) public view returns (uint256 balance)']
+  const tokenContract = new Contract(tokenAddress, abi)
+
+  return tokenContract.balanceOf(address)
+}
+
 const generateContractFunctionList = async (provider, daoList, tokenList) => {
   const daoFunctionCallMap = []
 
   daoList.map(({ daoName, daoAddress }) => {
     const multicallRequests = []
 
-    // Handle ETH
-    const ethBalanceCall = multicallRequests.push(provider.getEthBalance(daoAddress))
+    // Ugly hack for a DAO with multiple addresses to track.
+    if (Array.isArray(daoAddress)) {
+      const ethBalanceByAddress = []
+      const balanceCallsByAddress = []
 
-    tokenList.map(async ({ address: tokenAddress }) => {
-      const abi = ['function balanceOf(address _owner) public view returns (uint256 balance)']
-      const tokenContract = new Contract(tokenAddress, abi)
+      daoAddress.map(address => {
+        const tokenBalanceCalls = []
+        tokenList.map(async ({ address: tokenAddress }) =>
+          tokenBalanceCalls.push(getERC20BalanceCall(provider, address, tokenAddress))
+        )
 
-      multicallRequests.push(tokenContract.balanceOf(daoAddress))
-    })
+        ethBalanceByAddress.push(getETHBalanceCall(provider, address))
+        balanceCallsByAddress.push(tokenBalanceCalls)
+      })
 
-    daoFunctionCallMap.push({
-      daoName,
-      daoAddress,
-      balanceMultiCall: multicallRequests
-    })
+      daoFunctionCallMap.push({
+        daoName,
+        daoAddress,
+        balanceMultiCall: {
+          ethBalanceByAddress: ethBalanceByAddress,
+          balanceCallsByAddress: balanceCallsByAddress
+        }
+      })
+    } else {
+      // Handle ETH
+      const ethBalanceCall = getETHBalanceCall(provider, daoAddress)
+
+      tokenList.map(async ({ address: tokenAddress }) =>
+        multicallRequests.push(getERC20BalanceCall(provider, daoAddress, tokenAddress))
+      )
+
+      daoFunctionCallMap.push({
+        daoName,
+        daoAddress,
+        balanceMultiCall: multicallRequests
+      })
+    }
   })
 
   return daoFunctionCallMap
